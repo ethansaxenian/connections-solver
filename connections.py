@@ -96,14 +96,21 @@ def get_next_match(
         if not is_one_away(group, one_away):
             continue
 
-        print()
-        print([word.upper().replace("_", " ") for word in group], score)
+        result = ""
+        while result not in ("y", "n", "1"):
+            print()
+            print([word.upper().replace("_", " ") for word in group], score)
 
-        correct = input("correct? ").strip().lower()
-        if correct == "y":
+            result = (
+                input("'y' (correct), '1' (one away), or 'n' (incorrect): ")
+                .strip()
+                .lower()
+            )
+
+        if result == "y":
             return group, guesses
 
-        if correct == "1":
+        if result == "1":
             one_away.append(set(group))
 
         guesses.append(group)
