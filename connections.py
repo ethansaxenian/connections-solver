@@ -6,55 +6,61 @@ from pathlib import Path
 from gensim import downloader
 from gensim.models import KeyedVectors
 
-print("Enter words (ctrl + D to end):")
-board = []
-while True:
-    try:
-        line = input()
-    except EOFError:
-        break
-    if len(line) > 0:
-        board.append(line.strip().lower().replace(" ", "_").replace("'", ""))
-
 DATASET = "word2vec-google-news-300"
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-if not (DATA_DIR / f"{DATASET}.kv").exists():
-    word_vectors: KeyedVectors = downloader.load(DATASET)
-    word_vectors.save(str(DATA_DIR / f"{DATASET}.kv"))
-else:
-    word_vectors = KeyedVectors.load(str(DATA_DIR / f"{DATASET}.kv"), mmap="r")
+GROUP_SIZE = 4
+
+Group = tuple[str, ...]
 
 
-def clean_words(board: list[str]) -> list[str]:
+def load_vectors(dataset: str) -> KeyedVectors:
+    if not (DATA_DIR / f"{dataset}.kv").exists():
+        word_vectors: KeyedVectors = downloader.load(dataset)
+        word_vectors.save(str(DATA_DIR / f"{dataset}.kv"))
+    else:
+        word_vectors = KeyedVectors.load(str(DATA_DIR / f"{dataset}.kv"), mmap="r")
+
+    return word_vectors
+
+
+def get_words(word_vectors: KeyedVectors) -> list[str]:
+    print("Enter words (ctrl + D to end):")
+
     words = []
 
-    for word in board:
-        if word in word_vectors:
-            words.append(word)
-        elif word.capitalize() in word_vectors:
-            words.append(word.capitalize())
-        elif word.upper() in word_vectors:
-            words.append(word.upper())
-        else:
-            raise IndexError(f"{word} not found in dataset")
+    while True:
+        try:
+            line = input()
+        except EOFError:
+            break
+        if len(line) > 0:
+            word = line.strip().lower().replace(" ", "_").replace("'", "")
+            if word in word_vectors:
+                words.append(word)
+            elif word.capitalize() in word_vectors:
+                words.append(word.capitalize())
+            elif word.upper() in word_vectors:
+                words.append(word.upper())
+            else:
+                raise IndexError(f"{word} not found in dataset")
+
+    if len(words) % GROUP_SIZE != 0:
+        raise ValueError(f"Number of words must be a multiple of {GROUP_SIZE}")
 
     return words
-
-
-words = clean_words(board)
 
 
 def choose(n: int, k: int) -> float:
     return math.factorial(n) / (math.factorial(n - k) * math.factorial(k))
 
 
-def avg_similarity(group: tuple[str, str, str, str]) -> float:
+def avg_similarity(group: Group) -> float:
     score = 0
     for comb in itertools.combinations(group, 2):
         score += word_vectors.similarity(*comb)
-    return score / choose(4, 2)
+    return score / choose(GROUP_SIZE, 2)
 
 
 def is_one_away(group: Iterable[str], checks: list[set[str]]) -> bool:
@@ -64,34 +70,57 @@ def is_one_away(group: Iterable[str], checks: list[set[str]]) -> bool:
     return True
 
 
-not_it = set()
-
-while len(words) > 0:
-    one_away = []
-
-    scores = sorted(
-        ((comb, avg_similarity(comb)) for comb in itertools.combinations(words, 4)),
+def get_combinations(words: list[str]) -> Iterable[tuple[Group, float]]:
+    return sorted(
+        (
+            (comb, avg_similarity(comb))
+            for comb in itertools.combinations(words, GROUP_SIZE)
+        ),
         key=lambda tup: tup[1],
         reverse=True,
     )
 
+
+def get_next_match(
+    words: list[str], previous_guesses: set[Group]
+) -> tuple[Group, set[Group]]:
+    guesses = set()
+    one_away = []
+
+    scores = get_combinations(words)
+
     for group, score in scores:
-        if group in not_it:
+        if group in previous_guesses:
             continue
 
         if not is_one_away(group, one_away):
             continue
 
         print()
-        print([word.lower() for word in group], score)
+        print([word.upper().replace("_", " ") for word in group], score)
 
         correct = input("correct? ").strip().lower()
         if correct == "y":
-            for word in group:
-                words.remove(word)
-            break
+            return group, guesses
 
         if correct == "1":
             one_away.append(set(group))
 
-        not_it.add(group)
+        guesses.add(group)
+
+    return tuple(), guesses
+
+
+if __name__ == "__main__":
+    word_vectors = load_vectors(DATASET)
+    words = get_words(word_vectors)
+
+    guesses = set()
+
+    while len(words) > 0:
+        group, new_guesses = get_next_match(words, guesses)
+
+        guesses |= new_guesses
+
+        for word in group:
+            words.remove(word)
