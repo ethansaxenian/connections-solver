@@ -82,9 +82,9 @@ def get_combinations(words: list[str]) -> Iterable[tuple[Group, float]]:
 
 
 def get_next_match(
-    words: list[str], previous_guesses: set[Group]
-) -> tuple[Group, set[Group]]:
-    guesses = set()
+    words: list[str], previous_guesses: list[Group]
+) -> tuple[Group, list[Group]]:
+    guesses = []
     one_away = []
 
     scores = get_combinations(words)
@@ -106,7 +106,7 @@ def get_next_match(
         if correct == "1":
             one_away.append(set(group))
 
-        guesses.add(group)
+        guesses.append(group)
 
     return tuple(), guesses
 
@@ -115,12 +115,12 @@ if __name__ == "__main__":
     word_vectors = load_vectors(DATASET)
     words = get_words(word_vectors)
 
-    guesses = set()
+    guesses = []
 
     while len(words) > 0:
         group, new_guesses = get_next_match(words, guesses)
 
-        guesses |= new_guesses
+        guesses.extend(new_guesses)
 
         for word in group:
             words.remove(word)
