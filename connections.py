@@ -63,12 +63,8 @@ def avg_similarity(group: Group) -> float:
     return score / choose(GROUP_SIZE, 2)
 
 
-def is_one_away(group: Iterable[str], checks: list[set[str]]) -> bool:
-    for check in checks:
-        if len(check.difference(group)) > 1:
-            return False
-    return True
-
+def is_one_away(group: Iterable[str], check: set[str]) -> bool:
+    return len(check.difference(group)) == 1
 
 def get_combinations(words: list[str]) -> Iterable[tuple[Group, float]]:
     return sorted(
@@ -86,6 +82,7 @@ def get_next_match(
 ) -> tuple[Group, list[Group]]:
     guesses = []
     one_away = []
+    far_away = []
 
     scores = get_combinations(words)
 
@@ -93,16 +90,19 @@ def get_next_match(
         if group in previous_guesses:
             continue
 
-        if not is_one_away(group, one_away):
+        if not all(is_one_away(group, check) for check in one_away):
+            continue
+
+        if any(is_one_away(group, check) for check in far_away):
             continue
 
         result = ""
-        while result not in ("y", "n", "1"):
+        while result not in ("y", "n", "2+", "1"):
             print()
             print([word.upper().replace("_", " ") for word in group], score)
 
             result = (
-                input("'y' (correct), '1' (one away), or 'n' (incorrect): ")
+                input("'y' (correct), '1' (one away), '2+' (two or more away), or 'n' (incorrect): ")
                 .strip()
                 .lower()
             )
@@ -112,6 +112,9 @@ def get_next_match(
 
         if result == "1":
             one_away.append(set(group))
+
+        if result == "2+":
+            far_away.append(set(group))
 
         guesses.append(group)
 
