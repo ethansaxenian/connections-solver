@@ -36,7 +36,13 @@ def get_words(word_vectors: KeyedVectors) -> list[str]:
         except EOFError:
             break
         if len(line) > 0:
-            word = line.strip().lower().replace(" ", "_").replace("'", "")
+            word = (
+                line.strip()
+                .lower()
+                .replace(" ", "_")
+                .replace("'", "")
+                .replace("-", "_")
+            )
             if word in word_vectors:
                 words.append(word)
             elif word.capitalize() in word_vectors:
@@ -65,6 +71,7 @@ def avg_similarity(group: Group) -> float:
 
 def is_one_away(group: Iterable[str], check: set[str]) -> bool:
     return len(check.difference(group)) == 1
+
 
 def get_combinations(words: list[str]) -> Iterable[tuple[Group, float]]:
     return sorted(
@@ -99,10 +106,15 @@ def get_next_match(
         result = ""
         while result not in ("y", "n", "2+", "1"):
             print()
-            print([word.upper().replace("_", " ") for word in group], score)
+            print(
+                [word.upper().replace("_", " ").replace("-", " ") for word in group],
+                score,
+            )
 
             result = (
-                input("'y' (correct), '1' (one away), '2+' (two or more away), or 'n' (incorrect): ")
+                input(
+                    "'y' (correct), '1' (one away), '2+' (two or more away), or 'n' (incorrect): "
+                )
                 .strip()
                 .lower()
             )
